@@ -38,9 +38,11 @@ func main() {
 	}
 
 	// 差分の表示
-	if err := ShowDiff(latestTag, "."); err != nil {
+	if changed, err := ShowDiff(latestTag, "."); err != nil {
 		fmt.Printf("エラー: %v\n", err)
 		os.Exit(1)
+	} else if !changed {
+		os.Exit(0)
 	}
 
 	// ユーザーに確認
@@ -64,31 +66,36 @@ func main() {
 }
 
 func GetLatestTag() (string, error) {
-	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
+	cmd := exec.Command("git", "tag", "--sort=-v:refname")
 	output, err := cmd.Output()
 	if err != nil {
-		// タグが存在しない場合は v0.0.0 を返す
+		return "", fmt.Errorf("タグの取得に失敗しました: %v", err)
+	}
+
+	tags := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(tags) == 0 || tags[0] == "" {
 		return "v0.0.0", nil
 	}
-	return strings.TrimSpace(string(output)), nil
+
+	return tags[0], nil
 }
 
-func ShowDiff(tag string, workDir string) error {
+func ShowDiff(tag string, workDir string) (changed bool, _ error) {
 	cmd := exec.Command("git", "log", "--oneline", fmt.Sprintf("%s..HEAD", tag))
 	cmd.Dir = workDir
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("差分の取得に失敗しました: %v", err)
+		return false, fmt.Errorf("差分の取得に失敗しました: %v", err)
 	}
 
 	if len(output) == 0 {
 		fmt.Printf("%sからの変更はありません\n", tag)
-		return nil
+		return false, nil
 	}
 
 	fmt.Printf("%sからの変更:\n", tag)
 	fmt.Println(string(output))
-	return nil
+	return true, nil
 }
 
 func ParseVersion(tag string) (Version, error) {

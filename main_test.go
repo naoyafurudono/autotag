@@ -187,7 +187,7 @@ func TestShowDiff(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := ShowDiff(tt.tag, dir)
+			_, err := ShowDiff(tt.tag, dir)
 
 			w.Close()
 			os.Stdout = old
