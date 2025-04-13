@@ -153,8 +153,9 @@ func BumpVersion(tag string, bumpType string) (string, error) {
 func CreateTag(tag string) error {
 	// タグの作成
 	cmd := exec.Command("git", "tag", tag)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("タグの作成に失敗しました: %v", err)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("タグの作成に失敗しました: %v\n出力: %s", err, string(output))
 	}
 
 	return nil
