@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -36,15 +37,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("新しいタグ: %s\n", newTag)
-
-	// タグの作成とプッシュ
-	if err := CreateAndPushTag(newTag); err != nil {
+	// 差分の表示
+	if err := ShowDiff(latestTag, "."); err != nil {
 		fmt.Printf("エラー: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("✅ タグ %s を作成し、リモートにpushしました。\n", newTag)
+	// ユーザーに確認
+	fmt.Printf("\n新しいタグ %s を作成しますか？ [y/N]: ", newTag)
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(strings.ToLower(input))
+
+	if input != "y" && input != "yes" {
+		fmt.Println("タグの作成をキャンセルしました")
+		os.Exit(0)
+	}
+
+	// タグの作成
+	if err := CreateTag(newTag); err != nil {
+		fmt.Printf("エラー: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✅ タグ %s を作成しました。\n", newTag)
 }
 
 func GetLatestTag() (string, error) {
@@ -55,6 +71,24 @@ func GetLatestTag() (string, error) {
 		return "v0.0.0", nil
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+func ShowDiff(tag string, workDir string) error {
+	cmd := exec.Command("git", "log", "--oneline", fmt.Sprintf("%s..HEAD", tag))
+	cmd.Dir = workDir
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("差分の取得に失敗しました: %v", err)
+	}
+
+	if len(output) == 0 {
+		fmt.Printf("%sからの変更はありません\n", tag)
+		return nil
+	}
+
+	fmt.Printf("%sからの変更:\n", tag)
+	fmt.Println(string(output))
+	return nil
 }
 
 func ParseVersion(tag string) (Version, error) {
@@ -116,17 +150,11 @@ func BumpVersion(tag string, bumpType string) (string, error) {
 	return fmt.Sprintf("v%d.%d.%d", v.Major, v.Minor, v.Patch), nil
 }
 
-func CreateAndPushTag(tag string) error {
+func CreateTag(tag string) error {
 	// タグの作成
 	cmd := exec.Command("git", "tag", tag)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("タグの作成に失敗しました: %v", err)
-	}
-
-	// タグのプッシュ
-	cmd = exec.Command("git", "push", "origin", tag)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("タグのpushに失敗しました: %v", err)
 	}
 
 	return nil
